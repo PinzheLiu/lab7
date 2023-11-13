@@ -6,7 +6,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
-import android.app.Notification;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -48,10 +47,10 @@ public class MainActivity extends AppCompatActivity {
         NotificationHelper.getInstance().createNotificationChannel(getApplicationContext());
 
         buttonSend.setOnClickListener(view -> {
-            NotificationHelper.getInstance().setNotificationContent(
+            NotificationHelper.getInstance().appendNotificationContent(
                     editTextSender.getText().toString(), editTextMessage.getText().toString()
             );
-            NotificationHelper.getInstance().showNotification(getApplicationContext());
+            NotificationHelper.getInstance().showNotification(getApplicationContext(), -1);
         });
     }
 }

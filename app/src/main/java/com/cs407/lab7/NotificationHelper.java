@@ -2,7 +2,9 @@ package com.cs407.lab7;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.Manifest;
@@ -10,6 +12,9 @@ import android.Manifest;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.app.RemoteInput;
+
+import java.util.ArrayList;
 
 public class NotificationHelper {
 
@@ -23,16 +28,18 @@ public class NotificationHelper {
 
     public static final String CHANNEL_ID = "channel_chat";
 
+    public static final String TEXT_REPLY = "text_reply";
+
     public void createNotificationChannel(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             CharSequence name = context.getString(R.string.channel_name);
             String description = context.getString(R.string.channel_description);
 
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            int importance = NotificationManager.IMPORTANCE_HIGH;
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
             channel.setDescription(description);
 
-            NotificationManager notificationManager=context.getSystemService(NotificationManager.class);
+            NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
         }
     }
@@ -41,23 +48,57 @@ public class NotificationHelper {
     private String sender = null;
     private String message = null;
 
-    public void setNotificationContent(String sender, String message) {
-        this.sender = sender;
-        this.message = message;
-        this.notificationId++;
+    final ArrayList<NotificationItem> notificationItems = new ArrayList<>();
+
+    public void appendNotificationContent(String sender, String message) {
+        NotificationItem item = new NotificationItem(
+                sender,
+                message,
+                notificationItems.size()
+        );
+        notificationItems.add(item);
     }
 
-    public void showNotification(Context context) {
+    public void showNotification(Context context, int id) {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
-        != PackageManager.PERMISSION_GRANTED) {
+                != PackageManager.PERMISSION_GRANTED) {
             return;
         }
 
+        NotificationItem item;
+        if (id == -1) {
+            item = notificationItems.get(notificationItems.size() - 1);
+        } else {
+            item = notificationItems.get(id);
+        }
+
+        RemoteInput remoteInput = new RemoteInput.Builder(TEXT_REPLY)
+                .setLabel(context.getString(R.string.reply))
+                .build();
+
+        Intent replyIntent = new Intent(context, ReplyReceiver.class);
+        replyIntent.putExtra("id", item.getId());
+
+        PendingIntent replyPendingIntent =
+                PendingIntent.getBroadcast(context,
+                        item.getId(),
+                        replyIntent,
+                        PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        NotificationCompat.Action action =
+                new NotificationCompat.Action.Builder(R.drawable.ic_reply_icon,
+                        context.getString(R.string.reply), replyPendingIntent)
+                        .addRemoteInput(remoteInput)
+                        .build();
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle(sender)
-                .setContentText(message)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setContentTitle(item.getSender())
+                .setContentText(item.getMessage())
+                .addAction(action)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
         notificationManager.notify(notificationId, builder.build());
     }
